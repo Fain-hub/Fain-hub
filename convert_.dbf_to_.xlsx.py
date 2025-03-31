@@ -2,69 +2,69 @@ from dbfread import DBF
 import openpyxl
 from openpyxl.utils import get_column_letter
 import re
+import os
 import unicodedata
 import tkinter as tk
 from tkinter import filedialog
 
-def limpiar_valor(valor):
-    """Limpia caracteres no válidos para Excel."""
-    if isinstance(valor, str):
-        valor = unicodedata.normalize('NFKC', valor)
-        valor = ''.join(c for c in valor if unicodedata.category(c) != 'Cc')
-        return re.sub(r'[^\x00-\x7F]+', '', valor)
-    return valor
+def clean_value(value):
+    if isinstance(value, str):
+        value = unicodedata.normalize('NFKC', value)
+        value = ''.join(c for c in value if unicodedata.category(c) != 'Cc')
+        return re.sub(r'[^\x00-\x7F]+', '', value)
+    return value
 
-def dbf_a_xlsx(archivo_dbf, archivo_xlsx, encoding='latin-1', archivo_tipo='xlsx'):
-    """Convierte un archivo DBF a XLSX y autoajusta el ancho de las columnas."""
-    tabla = DBF(archivo_dbf, encoding=encoding)
-    libro_xlsx = openpyxl.Workbook()
-    hoja_xlsx = libro_xlsx.active
-    for i, campo in enumerate(tabla.fields):
-        hoja_xlsx.cell(row=1, column=i + 1, value=campo.name)
-    for fila_idx, fila in enumerate(tabla):
-        for col_idx, valor in enumerate(fila.values()):
-            hoja_xlsx.cell(row=fila_idx + 2, column=col_idx + 1, value=limpiar_valor(valor))
-    for columna in hoja_xlsx.columns:
-        max_longitud = 0
-        for celda in columna:
+def dbf_to_xlsx(dbf_file, xlsx_file, encoding='latin-1', file_type='xlsx'):
+    table = DBF(dbf_file, encoding=encoding)
+    xlsx_workbook = openpyxl.Workbook()
+    xlsx_sheet = xlsx_workbook.active
+
+    for i, field in enumerate(table.fields):
+        xlsx_sheet.cell(row=1, column=i + 1, value=field.name)
+
+    for row_idx, row in enumerate(table):
+        for col_idx, value in enumerate(row.values()):
+            xlsx_sheet.cell(row=row_idx + 2, column=col_idx + 1, value=clean_value(value))
+
+    for column in xlsx_sheet.columns:
+        max_length = 0
+        for cell in column:
             try:
-                if len(str(celda.value)) > max_longitud:
-                    max_longitud = len(str(celda.value))
+                if len(str(cell.value)) > max_length:
+                    max_length = len(str(cell.value))
             except TypeError:
                 pass
-        columna_ajustada = (max_longitud + 2) * 1.1 
-        hoja_xlsx.column_dimensions[get_column_letter(columna[0].column)].width = columna_ajustada
-    libro_xlsx.save(archivo_xlsx)
+        adjusted_column = (max_length + 2) * 1.1
+        xlsx_sheet.column_dimensions[get_column_letter(column[0].column)].width = adjusted_column
 
-def seleccionar_archivo_dbf():
-    root = tk.Tk()
-    root.withdraw()  # Oculta la ventana principal de tkinter
-    archivo_dbf = filedialog.askopenfilename(title="Seleccionar archivo DBF", filetypes=[("Archivos DBF", "*.dbf")])
-    return archivo_dbf
+    xlsx_workbook.save(xlsx_file)
 
-def obtener_nombre_archivo_xlsx():
+def select_dbf_file():
     root = tk.Tk()
     root.withdraw()
-    nombre_archivo = filedialog.asksaveasfilename(title="Guardar archivo XLSX como", defaultextension=".xlsx", filetypes=[("Archivos XLSX", "*.xlsx")])
-    return nombre_archivo
+    dbf_file = filedialog.askopenfilename(title="Select DBF file", filetypes=[("DBF Files", "*.dbf")])
+    return dbf_file
 
-# Interfaz de usuario para seleccionar archivos y carpetas
-archivo_dbf = seleccionar_archivo_dbf()
-if not archivo_dbf:
-    print("No se seleccionó ningún archivo DBF.")
+def get_xlsx_filename():
+    root = tk.Tk()
+    root.withdraw()
+    xlsx_filename = filedialog.asksaveasfilename(title="Save XLSX file as", defaultextension=".xlsx", filetypes=[("XLSX Files", "*.xlsx")])
+    return xlsx_filename
+
+dbf_file = select_dbf_file()
+if not dbf_file:
+    print("No DBF file selected.")
     exit()
 
-nombre_archivo_xlsx = obtener_nombre_archivo_xlsx()
-if not nombre_archivo_xlsx:
-    print("No se especificó el nombre del archivo XLSX.")
+xlsx_filename = get_xlsx_filename()
+if not xlsx_filename:
+    print("No XLSX filename specified.")
     exit()
 
-# Intentar guardar como XLSX "estricto" (si es compatible)
 try:
-    dbf_a_xlsx(archivo_dbf, nombre_archivo_xlsx, archivo_tipo='xlsx')
+    dbf_to_xlsx(dbf_file, xlsx_filename, file_type='xlsx')
 except Exception as e:
-    print(f"Error al guardar como XLSX estricto: {e}")
-    # Si falla, guardar como XLSX normal
-    dbf_a_xlsx(archivo_dbf, nombre_archivo_xlsx)
+    print(f"Error saving as strict XLSX: {e}")
+    dbf_to_xlsx(dbf_file, xlsx_filename)
 
-print("Terminado")
+print("Finished")
